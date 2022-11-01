@@ -4,6 +4,7 @@ import (
 	database "ahripost_deploy/database"
 	model_v1 "ahripost_deploy/models/v1"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -125,5 +126,115 @@ func Items(request *gin.Context) {
 		"code": 10000,
 		"msg":  "find items success",
 		"data": items,
+	})
+}
+
+func PostItem(request *gin.Context) {
+	var user model_v1.User
+	if u, exist := request.Get("user"); exist {
+		user = u.(model_v1.User)
+	} else {
+		request.JSON(200, gin.H{
+			"code": 0,
+			"msg":  "not login",
+			"data": nil,
+		})
+		return
+	}
+
+	var err error
+	var project_id = request.Param("project_id")
+	if project_id == "" {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "no project id",
+			"data": nil,
+		})
+		return
+	}
+
+	var id int64
+	id, err = strconv.ParseInt(project_id, 10, 64)
+	if err != nil {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "project id is not a number",
+			"data": nil,
+		})
+		return
+	}
+
+	project := model_v1.Project{}
+	result := database.DB.Where("_id = ? AND user_r_id = ?", id, user.RID).First(&project)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
+			})
+			return
+		} else {
+			request.JSON(200, gin.H{
+				"code": 50000,
+				"msg":  "server error",
+				"data": gin.H{
+					"message": result.Error.Error(),
+				},
+			})
+			return
+		}
+	}
+
+	var data map[string]interface{}
+	err = request.BindJSON(&data)
+	if err != nil {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "json error",
+			"data": nil,
+		})
+		return
+	}
+	utc_timestame := time.Now().UnixMilli()
+
+	var item model_v1.Item
+	item.ID = int64(data["id"].(float64))
+	item.Key = data["key"].(string)
+	item.Label = data["label"].(string)
+	item.Type = data["type"].(string)
+	item.From = data["from"].(string)
+	item.ProjectRID = project.RID
+	item.UserRID = user.RID
+	item.Parent = int64(data["parent"].(float64))
+	item.LastSync = utc_timestame
+	item.LastUpdate = int64(data["last_update"].(float64))
+	if data["request"] == nil {
+		item.Request = ""
+	} else {
+		item.Request = data["request"].(string)
+	}
+	if data["response"] == nil {
+		item.Response = ""
+	} else {
+		item.Response = data["response"].(string)
+	}
+
+	result = database.DB.Create(&item)
+	if result.Error != nil {
+		request.JSON(200, gin.H{
+			"code": 50000,
+			"msg":  "server error",
+			"data": gin.H{
+				"message": result,
+			},
+		})
+		return
+	}
+
+	request.JSON(200, gin.H{
+		"code": 10000,
+		"msg":  "create item success",
+		"data": item,
 	})
 }

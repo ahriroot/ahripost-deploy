@@ -27,7 +27,7 @@ func Sync(request *gin.Context) {
 	var data map[string]interface{}
 	if err = request.ShouldBind(&data); err != nil {
 		request.JSON(200, gin.H{
-			"code": 40701,
+			"code": 40000,
 			"msg":  "参数错误！",
 			"data": gin.H{
 				"message": err.Error(),
@@ -61,7 +61,7 @@ func Sync(request *gin.Context) {
 
 	data_item := data["item"].(map[string]interface{})
 	item := model_v1.Item{}
-	result = database.DB.First(&item, int64(data_item["_id"].(float64)))
+	result = database.DB.Where("key = ? AND project_r_id = ?", data_item["key"].(string), project.RID).First(&item)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			item.ID = int64(data_item["id"].(float64))
@@ -73,7 +73,8 @@ func Sync(request *gin.Context) {
 			item.Parent = int64(data_item["parent"].(float64))
 			item.LastSync = utc_timestame
 			item.LastUpdate = int64(data_item["last_update"].(float64))
-			item.Detail = data_item["detail"].(string)
+			item.Request = data_item["request"].(string)
+			item.Response = data_item["response"].(string)
 			database.DB.Create(&item)
 
 			request.JSON(200, gin.H{
@@ -97,12 +98,12 @@ func Sync(request *gin.Context) {
 		}
 	} else {
 		local_last_sync := int64(data_item["last_sync"].(float64))
-		// remote_last_sync := item.LastSync
+		remote_last_sync := item.LastSync
 		// local_last_update := int64(data_item["last_update"].(float64))
-		remote_last_update := item.LastUpdate
+		// remote_last_update := item.LastUpdate
 
 		// 上次同步时间早于上次更新时间，说明有其他人更新了数据，需要同步到本地
-		if local_last_sync < remote_last_update {
+		if local_last_sync < remote_last_sync {
 			request.JSON(200, gin.H{
 				"code": 10002,
 				"msg":  "sync conflict",
@@ -120,7 +121,8 @@ func Sync(request *gin.Context) {
 			item.UserRID = user.RID
 			item.LastSync = utc_timestame
 			item.LastUpdate = int64(data_item["last_update"].(float64))
-			item.Detail = data_item["detail"].(string)
+			item.Request = data_item["request"].(string)
+			item.Response = data_item["response"].(string)
 			database.DB.Save(&item)
 
 			request.JSON(200, gin.H{

@@ -12,6 +12,7 @@ func RegisterRouter(r *gin.Engine) {
 	client_router := r.Group("/client/api", middleware.TokenLogin())
 	{
 		client_router.POST("/sync", client.Sync)
+		client_router.GET("/project", client.Projects)
 	}
 	browser_router := r.Group("/browser/api")
 	{
@@ -22,5 +23,6 @@ func RegisterRouter(r *gin.Engine) {
 		browser_router_auth.GET("/project/:project_id", browser.Project)
 		browser_router_auth.GET("/project", browser.Projects)
 		browser_router_auth.GET("/api/:project_id", browser.Items)
+		browser_router_auth.POST("/api/:project_id", browser.PostItem)
 	}
 }
