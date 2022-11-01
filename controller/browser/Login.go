@@ -9,13 +9,13 @@ import (
 	"gorm.io/gorm"
 )
 
-type LoginForm struct {
+type FormLogin struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
 func Login(request *gin.Context) {
-	var data LoginForm
+	var data FormLogin
 	if err := request.ShouldBindJSON(&data); err != nil {
 		request.JSON(200, gin.H{
 			"code": 40000,

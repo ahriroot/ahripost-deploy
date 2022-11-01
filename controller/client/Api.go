@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func Sync(request *gin.Context) {
+func Apis(request *gin.Context) {
 	var user model_v1.User
 	if u, exist := request.Get("user"); exist {
 		user = u.(model_v1.User)
