@@ -70,7 +70,7 @@ func Apis(request *gin.Context) {
 			item.Type = data_item["type"].(string)
 			item.ProjectRID = project.RID
 			item.UserRID = user.RID
-			item.Parent = int64(data_item["parent"].(float64))
+			item.Parent = data_item["parent"].(string)
 			item.LastSync = utc_timestame
 			item.LastUpdate = int64(data_item["last_update"].(float64))
 			item.Request = data_item["request"].(string)
@@ -117,7 +117,7 @@ func Apis(request *gin.Context) {
 			item.Key = data_item["key"].(string)
 			item.Label = data_item["label"].(string)
 			item.Type = data_item["type"].(string)
-			item.Parent = int64(data_item["parent"].(float64))
+			item.Parent = data_item["parent"].(string)
 			item.UserRID = user.RID
 			item.LastSync = utc_timestame
 			item.LastUpdate = int64(data_item["last_update"].(float64))

@@ -26,5 +26,9 @@ func RegisterRouter(r *gin.Engine) {
 		browser_router_auth.GET("/project", browser.Projects)
 		browser_router_auth.GET("/api/:project_id", browser.Items)
 		browser_router_auth.POST("/api/:project_id", browser.PostItem)
+		browser_router_auth.GET("/member/:project_id/:member_id", browser.Member)
+		browser_router_auth.GET("/member/:project_id", browser.Members)
+		browser_router_auth.POST("/member/:project_id", browser.PostMember)
+		browser_router_auth.DELETE("/member/:project_id/:member_id", browser.DeleteMember)
 	}
 }

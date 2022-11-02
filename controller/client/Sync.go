@@ -53,18 +53,60 @@ func SyncCheck(request *gin.Context) {
 	}
 
 	project := model_v1.Project{}
-	result := database.DB.Where("key = ? AND user_r_id = ?", data.Project.Key, user.RID).First(&project)
+	result := database.DB.Where("key = ?", data.Project.Key).First(&project)
 	if result.Error != nil {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "项目不存在！",
-			"data": nil,
-		})
-		return
+		if result.Error == gorm.ErrRecordNotFound {
+			project.ID = 0
+			project.UserRID = user.RID
+			project.Key = data.Project.Key
+			project.Name = data.Project.Name
+			project.CreateAt = time.Now().UnixMilli()
+			result = database.DB.Create(&project)
+			if result.Error != nil {
+				request.JSON(200, gin.H{
+					"code": 50000,
+					"msg":  "sync project error",
+					"data": gin.H{
+						"message": result.Error.Error(),
+					},
+				})
+				return
+			}
+		} else {
+			request.JSON(200, gin.H{
+				"code": 50000,
+				"msg":  "server error",
+				"data": gin.H{
+					"message": result.Error.Error(),
+				},
+			})
+			return
+		}
+	}
+
+	if project.UserRID != user.RID { // 该用户不拥有该项目
+		member := model_v1.Member{}
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		if result.Error != nil { // 该用户不是该项目的成员
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
+			})
+			return
+		}
+		if member.Status != 1 { // 该成员没有上传权限
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no permission",
+				"data": nil,
+			})
+			return
+		}
 	}
 
 	items := []model_v1.Item{}
-	database.DB.Where("user_r_id = ? AND project_r_id = ?", user.RID, project.RID).Find(&items)
+	database.DB.Where("project_r_id = ?", project.RID).Find(&items)
 	map_remote := map[string]model_v1.Item{}
 	for _, item := range items {
 		map_remote[item.Key] = item
@@ -77,7 +119,7 @@ func SyncCheck(request *gin.Context) {
 			if item.LastUpdate > api.LastUpdate {
 				items_download = append(items_download, item.Key)
 			} else if item.LastUpdate < api.LastUpdate {
-				items_upload = append(items_upload, item.Type)
+				items_upload = append(items_upload, item.Key)
 			}
 			delete(map_remote, api.Key)
 		} else {
@@ -128,26 +170,59 @@ func SyncData(request *gin.Context) {
 	items_download := data["items_download"].([]interface{})
 	items_project := data["project"].(map[string]interface{})
 	project_key := items_project["key"]
+
 	project := model_v1.Project{}
-	result := database.DB.Where("key = ? AND user_r_id = ?", project_key, user.RID).First(&project)
+	result := database.DB.Where("key = ?", project_key).First(&project)
 	if result.Error != nil {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "项目不存在！",
-			"data": nil,
-		})
-		return
+		if result.Error == gorm.ErrRecordNotFound {
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
+			})
+			return
+		} else {
+			request.JSON(200, gin.H{
+				"code": 50000,
+				"msg":  "server error",
+				"data": gin.H{
+					"message": result.Error.Error(),
+				},
+			})
+			return
+		}
+	}
+
+	if project.UserRID != user.RID { // 该用户不拥有该项目
+		member := model_v1.Member{}
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		if result.Error != nil { // 该用户不是该项目的成员
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
+			})
+			return
+		}
+		if member.Status != 1 { // 该成员没有上传权限
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no permission",
+				"data": nil,
+			})
+			return
+		}
 	}
 
 	items := []model_v1.Item{}
-	database.DB.Where("user_r_id = ? AND key IN ?", user.RID, items_download).Find(&items)
+	database.DB.Where("project_r_id = ? AND key IN ?", project.RID, items_download).Find(&items)
 
 	utc_timestame := time.Now().UnixMilli()
 	count := 0
 	for _, api := range items_upload {
 		data_item := api.(map[string]interface{})
 		item := model_v1.Item{}
-		result := database.DB.Where("user_r_id = ? AND key = ?", user.RID, data_item["key"]).First(&item)
+		result := database.DB.Where("key = ?", data_item["key"]).First(&item)
 		if result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
 				item.ID = int64(data_item["id"].(float64))
@@ -156,7 +231,7 @@ func SyncData(request *gin.Context) {
 				item.Type = data_item["type"].(string)
 				item.ProjectRID = project.RID
 				item.UserRID = user.RID
-				item.Parent = int64(data_item["parent"].(float64))
+				item.Parent = data_item["parent"].(string)
 				item.LastSync = utc_timestame
 				item.LastUpdate = int64(data_item["last_update"].(float64))
 				item.Request = data_item["request"].(string)
@@ -178,7 +253,7 @@ func SyncData(request *gin.Context) {
 			item.Key = data_item["key"].(string)
 			item.Label = data_item["label"].(string)
 			item.Type = data_item["type"].(string)
-			item.Parent = int64(data_item["parent"].(float64))
+			item.Parent = data_item["parent"].(string)
 			item.UserRID = user.RID
 			item.LastSync = utc_timestame
 			item.LastUpdate = int64(data_item["last_update"].(float64))

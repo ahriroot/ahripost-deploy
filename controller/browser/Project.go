@@ -45,7 +45,7 @@ func Project(request *gin.Context) {
 	}
 
 	project := model_v1.Project{}
-	result := database.DB.Where("_id = ? AND user_r_id = ?", id, user.RID).First(&project)
+	result := database.DB.Where("_id = ?", id).First(&project)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			request.JSON(200, gin.H{
@@ -61,6 +61,19 @@ func Project(request *gin.Context) {
 				"data": gin.H{
 					"message": result.Error.Error(),
 				},
+			})
+			return
+		}
+	}
+
+	if project.UserRID != user.RID {
+		member := model_v1.Member{}
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		if result.Error != nil {
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
 			})
 			return
 		}
@@ -99,9 +112,42 @@ func Projects(request *gin.Context) {
 		return
 	}
 
+	members := []model_v1.Member{}
+	result = database.DB.Where("member_r_id = ?", user.RID).Find(&members)
+	if result.Error != nil {
+		request.JSON(200, gin.H{
+			"code": 50000,
+			"msg":  "server error",
+			"data": gin.H{
+				"message": result.Error.Error(),
+			},
+		})
+		return
+	}
+	project_ids := []int64{}
+	for _, member := range members {
+		project_ids = append(project_ids, member.ProjectRID)
+	}
+
+	projects_by_member := []model_v1.Project{}
+	result = database.DB.Where("_id IN ?", project_ids).Find(&projects_by_member)
+	if result.Error != nil {
+		request.JSON(200, gin.H{
+			"code": 50000,
+			"msg":  "server error",
+			"data": gin.H{
+				"message": result.Error.Error(),
+			},
+		})
+		return
+	}
+
 	request.JSON(200, gin.H{
 		"code": 10000,
 		"msg":  "find projects success",
-		"data": projects,
+		"data": gin.H{
+			"projects":           projects,
+			"projects_by_member": projects_by_member,
+		},
 	})
 }

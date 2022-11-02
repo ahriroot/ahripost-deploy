@@ -109,8 +109,43 @@ func Items(request *gin.Context) {
 		return
 	}
 
+	project := model_v1.Project{}
+	result := database.DB.Where("_id = ?", id).First(&project)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
+			})
+			return
+		} else {
+			request.JSON(200, gin.H{
+				"code": 50000,
+				"msg":  "server error",
+				"data": gin.H{
+					"message": result.Error.Error(),
+				},
+			})
+			return
+		}
+	}
+
+	if project.UserRID != user.RID {
+		member := model_v1.Member{}
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		if result.Error != nil {
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
+			})
+			return
+		}
+	}
+
 	items := []model_v1.Item{}
-	result := database.DB.Where("user_r_id = ? AND project_r_id = ?", user.RID, id).Find(&items)
+	result = database.DB.Where("project_r_id = ?", project.RID).Find(&items)
 	if result.Error != nil {
 		request.JSON(200, gin.H{
 			"code": 50000,
@@ -165,7 +200,7 @@ func PostItem(request *gin.Context) {
 	}
 
 	project := model_v1.Project{}
-	result := database.DB.Where("_id = ? AND user_r_id = ?", id, user.RID).First(&project)
+	result := database.DB.Where("_id = ?", id).First(&project)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			request.JSON(200, gin.H{
@@ -181,6 +216,27 @@ func PostItem(request *gin.Context) {
 				"data": gin.H{
 					"message": result.Error.Error(),
 				},
+			})
+			return
+		}
+	}
+
+	if project.UserRID != user.RID {
+		member := model_v1.Member{}
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		if result.Error != nil {
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
+			})
+			return
+		}
+		if member.Status != 0 { // 该成员没有上传权限
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no permission",
+				"data": nil,
 			})
 			return
 		}
@@ -206,7 +262,7 @@ func PostItem(request *gin.Context) {
 	item.From = data["from"].(string)
 	item.ProjectRID = project.RID
 	item.UserRID = user.RID
-	item.Parent = int64(data["parent"].(float64))
+	item.Parent = data["parent"].(string)
 	item.LastSync = utc_timestame
 	item.LastUpdate = int64(data["last_update"].(float64))
 	if data["request"] == nil {

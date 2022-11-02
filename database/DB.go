@@ -18,6 +18,7 @@ func init() {
 		&model_v1.Token{},
 		&model_v1.Project{},
 		&model_v1.Item{},
+		&model_v1.Member{},
 	)
 
 	DB = db
