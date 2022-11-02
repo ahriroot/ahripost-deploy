@@ -87,7 +87,6 @@ func Members(request *gin.Context) {
 		return
 	}
 
-	var err error
 	var project_id = request.Param("project_id")
 	if project_id == "" {
 		request.JSON(200, gin.H{
@@ -98,19 +97,8 @@ func Members(request *gin.Context) {
 		return
 	}
 
-	var id int64
-	id, err = strconv.ParseInt(project_id, 10, 64)
-	if err != nil {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "project id is not a number",
-			"data": nil,
-		})
-		return
-	}
-
 	members := []model_v1.Member{}
-	result := database.DB.Preload("Member").Where("user_r_id = ? AND project_r_id = ?", user.RID, id).Find(&members)
+	result := database.DB.Preload("Member").Where("user_r_id = ? AND project_r_id = ?", user.RID, project_id).Find(&members)
 	if result.Error != nil {
 		request.JSON(200, gin.H{
 			"code": 50000,
@@ -157,17 +145,6 @@ func PostMember(request *gin.Context) {
 		return
 	}
 
-	var id int64
-	id, err = strconv.ParseInt(project_id, 10, 64)
-	if err != nil {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "project id is not a number",
-			"data": nil,
-		})
-		return
-	}
-
 	var data PostMemberRequest
 	err = request.BindJSON(&data)
 	if err != nil {
@@ -202,13 +179,13 @@ func PostMember(request *gin.Context) {
 	}
 
 	member := model_v1.Member{}
-	result = database.DB.Where("user_r_id = ? AND member_r_id = ? AND project_r_id = ?", user.RID, member_user.RID, id).First(&member)
+	result = database.DB.Where("user_r_id = ? AND member_r_id = ? AND project_r_id = ?", user.RID, member_user.RID, project_id).First(&member)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			member = model_v1.Member{
 				UserRID:    user.RID,
 				MemberRID:  member_user.RID,
-				ProjectRID: id,
+				ProjectRID: project_id,
 				Status:     0,
 			}
 			result = database.DB.Create(&member)

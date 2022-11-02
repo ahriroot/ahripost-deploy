@@ -37,7 +37,7 @@ func TokenLogin() gin.HandlerFunc {
 		}
 
 		user := model_v1.User{}
-		result = database.DB.Where("_id = ?", token.RID).First(&user)
+		result = database.DB.Where("_id = ?", token.UserRID).First(&user)
 		if result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
 				c.JSON(200, gin.H{

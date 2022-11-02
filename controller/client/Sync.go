@@ -11,7 +11,7 @@ import (
 
 type FormApi struct {
 	Key        string `json:"key"`
-	Project    int64  `json:"project"`
+	Project    string `json:"project"`
 	LastSync   int64  `json:"last_sync"`
 	LastUpdate int64  `json:"last_update"`
 }
@@ -86,7 +86,7 @@ func SyncCheck(request *gin.Context) {
 
 	if project.UserRID != user.RID { // 该用户不拥有该项目
 		member := model_v1.Member{}
-		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.Key, user.RID).First(&member)
 		if result.Error != nil { // 该用户不是该项目的成员
 			request.JSON(200, gin.H{
 				"code": 40000,
@@ -106,7 +106,7 @@ func SyncCheck(request *gin.Context) {
 	}
 
 	items := []model_v1.Item{}
-	database.DB.Where("project_r_id = ?", project.RID).Find(&items)
+	database.DB.Where("project_r_id = ?", project.Key).Find(&items)
 	map_remote := map[string]model_v1.Item{}
 	for _, item := range items {
 		map_remote[item.Key] = item
@@ -114,6 +114,7 @@ func SyncCheck(request *gin.Context) {
 
 	items_download := make([]string, 0)
 	items_upload := make([]string, 0)
+
 	for _, api := range data.Apis {
 		if item, exist := map_remote[api.Key]; exist {
 			if item.LastUpdate > api.LastUpdate {
@@ -195,7 +196,7 @@ func SyncData(request *gin.Context) {
 
 	if project.UserRID != user.RID { // 该用户不拥有该项目
 		member := model_v1.Member{}
-		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.Key, user.RID).First(&member)
 		if result.Error != nil { // 该用户不是该项目的成员
 			request.JSON(200, gin.H{
 				"code": 40000,
@@ -215,10 +216,11 @@ func SyncData(request *gin.Context) {
 	}
 
 	items := []model_v1.Item{}
-	database.DB.Where("project_r_id = ? AND key IN ?", project.RID, items_download).Find(&items)
+	database.DB.Where("project_r_id = ? AND key IN ?", project.Key, items_download).Find(&items)
 
 	utc_timestame := time.Now().UnixMilli()
 	count := 0
+
 	for _, api := range items_upload {
 		data_item := api.(map[string]interface{})
 		item := model_v1.Item{}
@@ -229,7 +231,7 @@ func SyncData(request *gin.Context) {
 				item.Key = data_item["key"].(string)
 				item.Label = data_item["label"].(string)
 				item.Type = data_item["type"].(string)
-				item.ProjectRID = project.RID
+				item.ProjectRID = project.Key
 				item.UserRID = user.RID
 				item.Parent = data_item["parent"].(string)
 				item.LastSync = utc_timestame

@@ -87,7 +87,6 @@ func Items(request *gin.Context) {
 		return
 	}
 
-	var err error
 	var project_id = request.Param("project_id")
 	if project_id == "" {
 		request.JSON(200, gin.H{
@@ -98,19 +97,8 @@ func Items(request *gin.Context) {
 		return
 	}
 
-	var id int64
-	id, err = strconv.ParseInt(project_id, 10, 64)
-	if err != nil {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "project id is not a number",
-			"data": nil,
-		})
-		return
-	}
-
 	project := model_v1.Project{}
-	result := database.DB.Where("_id = ?", id).First(&project)
+	result := database.DB.Where("key = ?", project_id).First(&project)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			request.JSON(200, gin.H{
@@ -133,7 +121,7 @@ func Items(request *gin.Context) {
 
 	if project.UserRID != user.RID {
 		member := model_v1.Member{}
-		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.Key, user.RID).First(&member)
 		if result.Error != nil {
 			request.JSON(200, gin.H{
 				"code": 40000,
@@ -145,7 +133,7 @@ func Items(request *gin.Context) {
 	}
 
 	items := []model_v1.Item{}
-	result = database.DB.Where("project_r_id = ?", project.RID).Find(&items)
+	result = database.DB.Where("project_r_id = ?", project.Key).Find(&items)
 	if result.Error != nil {
 		request.JSON(200, gin.H{
 			"code": 50000,
@@ -188,19 +176,8 @@ func PostItem(request *gin.Context) {
 		return
 	}
 
-	var id int64
-	id, err = strconv.ParseInt(project_id, 10, 64)
-	if err != nil {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "project id is not a number",
-			"data": nil,
-		})
-		return
-	}
-
 	project := model_v1.Project{}
-	result := database.DB.Where("_id = ?", id).First(&project)
+	result := database.DB.Where("key = ?", project_id).First(&project)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			request.JSON(200, gin.H{
@@ -223,7 +200,7 @@ func PostItem(request *gin.Context) {
 
 	if project.UserRID != user.RID {
 		member := model_v1.Member{}
-		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.Key, user.RID).First(&member)
 		if result.Error != nil {
 			request.JSON(200, gin.H{
 				"code": 40000,
@@ -232,7 +209,7 @@ func PostItem(request *gin.Context) {
 			})
 			return
 		}
-		if member.Status != 0 { // 该成员没有上传权限
+		if member.Status != 1 { // 该成员没有上传权限
 			request.JSON(200, gin.H{
 				"code": 40000,
 				"msg":  "no permission",
@@ -260,7 +237,7 @@ func PostItem(request *gin.Context) {
 	item.Label = data["label"].(string)
 	item.Type = data["type"].(string)
 	item.From = data["from"].(string)
-	item.ProjectRID = project.RID
+	item.ProjectRID = project.Key
 	item.UserRID = user.RID
 	item.Parent = data["parent"].(string)
 	item.LastSync = utc_timestame

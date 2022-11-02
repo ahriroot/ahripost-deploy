@@ -5,7 +5,7 @@ type Project struct {
 	ID       int64  `json:"id" gorm:"column:id"`
 	UserRID  int64  `json:"user_id"`
 	User     User   `json:"user" gorm:"foreignKey:UserRID;references:RID"`
-	Key      string `json:"key" gorm:"column:key"`
+	Key      string `json:"key" gorm:"column:key;uniqueIndex"`
 	Name     string `json:"name" gorm:"column:name"`
 	CreateAt int64  `json:"create_at" gorm:"column:create_at"`
 }
@@ -17,10 +17,12 @@ type Item struct {
 	Label      string  `json:"label" gorm:"column:label"`
 	Type       string  `json:"type" gorm:"column:type"`
 	From       string  `json:"from" gorm:"column:from"`
-	ProjectRID int64   `json:"project_id"`
-	Project    Project `json:"project" gorm:"foreignKey:ProjectRID;references:RID"`
+	ProjectRID string  `json:"project_id"`
+	Project    Project `json:"project" gorm:"foreignKey:ProjectRID;references:Key"`
 	UserRID    int64   `json:"user_id"`
 	User       User    `json:"user" gorm:"foreignKey:UserRID;references:RID"`
+	Tag        bool    `json:"tag" gorm:"column:tag"`
+	Client     string  `json:"client" gorm:"column:client"`
 	Parent     string  `json:"parent" gorm:"column:parent;default:''"`
 	LastSync   int64   `json:"last_sync" gorm:"column:last_sync;default:0"`
 	LastUpdate int64   `json:"last_update" gorm:"column:last_update"`

@@ -3,7 +3,6 @@ package browser
 import (
 	database "ahripost_deploy/database"
 	model_v1 "ahripost_deploy/models/v1"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -22,7 +21,6 @@ func Project(request *gin.Context) {
 		return
 	}
 
-	var err error
 	var project_id = request.Param("project_id")
 	if project_id == "" {
 		request.JSON(200, gin.H{
@@ -33,19 +31,8 @@ func Project(request *gin.Context) {
 		return
 	}
 
-	var id int64
-	id, err = strconv.ParseInt(project_id, 10, 64)
-	if err != nil {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "project id is not a number",
-			"data": nil,
-		})
-		return
-	}
-
 	project := model_v1.Project{}
-	result := database.DB.Where("_id = ?", id).First(&project)
+	result := database.DB.Where("key = ?", project_id).First(&project)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			request.JSON(200, gin.H{
@@ -68,7 +55,7 @@ func Project(request *gin.Context) {
 
 	if project.UserRID != user.RID {
 		member := model_v1.Member{}
-		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.RID, user.RID).First(&member)
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.Key, user.RID).First(&member)
 		if result.Error != nil {
 			request.JSON(200, gin.H{
 				"code": 40000,
@@ -124,13 +111,13 @@ func Projects(request *gin.Context) {
 		})
 		return
 	}
-	project_ids := []int64{}
+	project_ids := []string{}
 	for _, member := range members {
 		project_ids = append(project_ids, member.ProjectRID)
 	}
 
 	projects_by_member := []model_v1.Project{}
-	result = database.DB.Where("_id IN ?", project_ids).Find(&projects_by_member)
+	result = database.DB.Where("key IN ?", project_ids).Find(&projects_by_member)
 	if result.Error != nil {
 		request.JSON(200, gin.H{
 			"code": 50000,

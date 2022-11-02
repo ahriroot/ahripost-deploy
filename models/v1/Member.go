@@ -6,7 +6,7 @@ type Member struct {
 	User       User    `json:"user" gorm:"foreignKey:UserRID;references:RID"`
 	MemberRID  int64   `json:"member_id"`
 	Member     User    `json:"member" gorm:"foreignKey:MemberRID;references:RID"`
-	ProjectRID int64   `json:"project_id"`
-	Project    Project `json:"project" gorm:"foreignKey:ProjectRID;references:RID"`
+	ProjectRID string  `json:"project_id"`
+	Project    Project `json:"project" gorm:"foreignKey:ProjectRID;references:Key"`
 	Status     int     `json:"status" gorm:"column:status"`
 }

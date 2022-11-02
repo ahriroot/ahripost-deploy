@@ -35,18 +35,20 @@ func Apis(request *gin.Context) {
 		})
 		return
 	}
+
 	data_project := data["project"].(map[string]interface{})
 	project := model_v1.Project{}
-	result := database.DB.First(&project, int64(data_project["_id"].(float64)))
-	utc_timestame := time.Now().UnixMilli()
+	result := database.DB.Where("key = ?", data_project["key"].(string)).Find(&project)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
-			project.ID = int64(data_project["id"].(float64))
-			project.UserRID = user.RID
-			project.Key = data_project["key"].(string)
-			project.Name = data_project["name"].(string)
-			project.CreateAt = utc_timestame
-			database.DB.Create(&project)
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": gin.H{
+					"message": result.Error.Error(),
+				},
+			})
+			return
 		} else {
 			request.JSON(200, gin.H{
 				"code": 50000,
@@ -59,81 +61,131 @@ func Apis(request *gin.Context) {
 		}
 	}
 
-	data_item := data["item"].(map[string]interface{})
-	item := model_v1.Item{}
-	result = database.DB.Where("key = ? AND project_r_id = ?", data_item["key"].(string), project.RID).First(&item)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			item.ID = int64(data_item["id"].(float64))
-			item.Key = data_item["key"].(string)
-			item.Label = data_item["label"].(string)
-			item.Type = data_item["type"].(string)
-			item.ProjectRID = project.RID
-			item.UserRID = user.RID
-			item.Parent = data_item["parent"].(string)
-			item.LastSync = utc_timestame
-			item.LastUpdate = int64(data_item["last_update"].(float64))
-			item.Request = data_item["request"].(string)
-			item.Response = data_item["response"].(string)
-			database.DB.Create(&item)
-
+	if project.UserRID != user.RID { // 该用户不拥有该项目
+		member := model_v1.Member{}
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.Key, user.RID).First(&member)
+		if result.Error != nil { // 该用户不是该项目的成员
 			request.JSON(200, gin.H{
-				"code": 10000,
-				"msg":  "sync success",
-				"data": gin.H{
-					"project": project,
-					"item":    item,
-				},
-			})
-			return
-		} else {
-			request.JSON(200, gin.H{
-				"code": 50000,
-				"msg":  "sync api error",
-				"data": gin.H{
-					"message": result.Error.Error(),
-				},
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
 			})
 			return
 		}
-	} else {
-		local_last_sync := int64(data_item["last_sync"].(float64))
-		remote_last_sync := item.LastSync
-		// local_last_update := int64(data_item["last_update"].(float64))
-		// remote_last_update := item.LastUpdate
-
-		// 上次同步时间早于上次更新时间，说明有其他人更新了数据，需要同步到本地
-		if local_last_sync < remote_last_sync {
+		if member.Status != 1 { // 该成员没有上传权限
 			request.JSON(200, gin.H{
-				"code": 10002,
-				"msg":  "sync conflict",
-				"data": gin.H{
-					"project": project,
-					"item":    item,
-				},
-			})
-			return
-		} else {
-			item.Key = data_item["key"].(string)
-			item.Label = data_item["label"].(string)
-			item.Type = data_item["type"].(string)
-			item.Parent = data_item["parent"].(string)
-			item.UserRID = user.RID
-			item.LastSync = utc_timestame
-			item.LastUpdate = int64(data_item["last_update"].(float64))
-			item.Request = data_item["request"].(string)
-			item.Response = data_item["response"].(string)
-			database.DB.Save(&item)
-
-			request.JSON(200, gin.H{
-				"code": 10001,
-				"msg":  "sync success",
-				"data": gin.H{
-					"project": project,
-					"item":    item,
-				},
+				"code": 40000,
+				"msg":  "no permission",
+				"data": nil,
 			})
 			return
 		}
 	}
+
+	data_apis := data["apis"].([]interface{})
+	keys := []string{}
+	for _, api := range data_apis {
+		api := api.(map[string]interface{})
+		keys = append(keys, api["key"].(string))
+	}
+
+	var db_apis []model_v1.Item
+	result = database.DB.Where("project_r_id = ? AND key IN ?", project.Key, keys).Find(&db_apis)
+	if result.Error != nil {
+		request.JSON(200, gin.H{
+			"code": 50000,
+			"msg":  "sync apis error",
+			"data": gin.H{
+				"message": result.Error.Error(),
+			},
+		})
+		return
+	}
+
+	data_remote := make(map[string]interface{})
+	for _, api := range db_apis {
+		data_remote[api.Key] = api
+	}
+
+	items_upload := make([]model_v1.Item, 0) // 上传到远程的数据
+
+	items_update := make([]model_v1.Item, 0) // 更新远程
+	items_sync := make([]model_v1.Item, 0)   // 更新本地
+
+	// for data_local
+	utc_timestame := time.Now().UnixMilli()
+	for _, api := range data_apis {
+		api := api.(map[string]interface{})
+		key := api["key"].(string)
+		if _, exist := data_remote[key]; exist {
+			item := data_remote[key].(model_v1.Item)
+			client := api["client"].(string)
+
+			last_update_local := int64(api["last_update"].(float64))
+			if user.RID == item.UserRID && client == item.Client { // 上次是本人在同一台设备上修改的
+				item.Key = api["key"].(string)
+				item.Label = api["label"].(string)
+				item.Type = api["type"].(string)
+				item.Parent = api["parent"].(string)
+				item.UserRID = user.RID
+				item.LastSync = utc_timestame
+				item.LastUpdate = last_update_local
+				item.Request = api["request"].(string)
+				item.Response = api["response"].(string)
+				items_update = append(items_update, item)
+			} else {
+				// last_sync_remote := data_remote[key].(model_v1.Item).LastSync
+				// last_sync_local := int64(api["last_sync"].(float64))
+				last_update_remote := data_remote[key].(model_v1.Item).LastUpdate
+				if last_update_local > last_update_remote { // 本地数据更新, 上传到远程
+					item.Key = api["key"].(string)
+					item.Label = api["label"].(string)
+					item.Type = api["type"].(string)
+					item.Parent = api["parent"].(string)
+					item.UserRID = user.RID
+					item.LastSync = utc_timestame
+					item.LastUpdate = last_update_local
+					item.Request = api["request"].(string)
+					item.Response = api["response"].(string)
+					items_update = append(items_update, item)
+				} else if last_update_local < last_update_remote {
+					items_sync = append(items_sync, item)
+				}
+			}
+		} else {
+			items_upload = append(items_upload, model_v1.Item{
+				ID:         int64(api["id"].(float64)),
+				Key:        api["key"].(string),
+				Label:      api["label"].(string),
+				Type:       api["type"].(string),
+				From:       "client",
+				ProjectRID: project.Key,
+				UserRID:    user.RID,
+				Parent:     api["parent"].(string),
+				LastSync:   utc_timestame,
+				LastUpdate: int64(api["last_update"].(float64)),
+				Request:    api["request"].(string),
+				Response:   api["response"].(string),
+			})
+		}
+	}
+
+	for _, api := range items_upload {
+		// create
+		database.DB.Create(&api)
+	}
+
+	for _, api := range items_update {
+		// update
+		database.DB.Save(&api)
+	}
+
+	request.JSON(200, gin.H{
+		"code": 10001,
+		"msg":  "sync success",
+		"data": gin.H{
+			"items_sync":   items_sync,
+			"items_update": items_update,
+		},
+	})
 }
