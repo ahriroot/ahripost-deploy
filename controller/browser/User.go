@@ -85,8 +85,8 @@ func User(request *gin.Context) {
 
 func Users(request *gin.Context) {
 	var err error
-	var page = request.Param("page")
-	var page_size = request.Param("page_size")
+	var page = request.Query("page")
+	var page_size = request.Query("size")
 
 	var page_int int
 	var page_size_int int
@@ -149,9 +149,14 @@ func Users(request *gin.Context) {
 	})
 }
 
+type FormUser struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
 func PostUser(request *gin.Context) {
 	var err error
-	var data model_v1.User
+	var data FormUser
 	err = request.ShouldBindJSON(&data)
 	if err != nil {
 		request.JSON(200, gin.H{
@@ -170,6 +175,14 @@ func PostUser(request *gin.Context) {
 		})
 		return
 	}
+	if data.Username == "admin" {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "username con not be admin",
+			"data": nil,
+		})
+		return
+	}
 	if data.Password == "" {
 		request.JSON(200, gin.H{
 			"code": 40000,
@@ -182,10 +195,10 @@ func PostUser(request *gin.Context) {
 	var user model_v1.User
 	result := database.DB.Where("username = ?", data.Username).First(&user)
 	if result.Error != nil {
-		if result.Error != gorm.ErrRecordNotFound {
+		if result.Error == gorm.ErrRecordNotFound {
+			user.Username = data.Username
 			user.Password = tools.Sha256(data.Password)
-			result = database.DB.Save(&user)
-			if result.Error != nil {
+			if database.DB.Create(&user).Error != nil {
 				request.JSON(200, gin.H{
 					"code": 50000,
 					"msg":  "database error",
@@ -214,7 +227,7 @@ func PostUser(request *gin.Context) {
 	} else {
 		request.JSON(200, gin.H{
 			"code": 40000,
-			"msg":  "username is exists",
+			"msg":  "username is arleady exist",
 			"data": nil,
 		})
 		return
@@ -244,7 +257,7 @@ func PutUser(request *gin.Context) {
 		return
 	}
 
-	var data model_v1.User
+	var data FormUser
 	err = request.ShouldBindJSON(&data)
 	if err != nil {
 		request.JSON(200, gin.H{
@@ -293,8 +306,18 @@ func PutUser(request *gin.Context) {
 		}
 	}
 
+	if user.Username == "admin" && data.Username != "admin" {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "admin can not be modified",
+			"data": nil,
+		})
+		return
+	}
+
 	user.Username = data.Username
 	user.Password = tools.Sha256(data.Password)
+	user.Token = ""
 	result = database.DB.Save(&user)
 	if result.Error != nil {
 		request.JSON(200, gin.H{
@@ -341,18 +364,9 @@ func DeleteUser(request *gin.Context) {
 	result := database.DB.First(&user, id)
 	if result.Error != nil {
 		if result.Error != gorm.ErrRecordNotFound {
-			result = database.DB.Delete(&user)
-			if result.Error != nil {
-				request.JSON(200, gin.H{
-					"code": 50000,
-					"msg":  "database error",
-					"data": nil,
-				})
-				return
-			}
 			request.JSON(200, gin.H{
-				"code": 10000,
-				"msg":  "success",
+				"code": 40000,
+				"msg":  "user is not exists",
 				"data": nil,
 			})
 			return
@@ -367,9 +381,26 @@ func DeleteUser(request *gin.Context) {
 			return
 		}
 	} else {
+		if user.Username == "admin" {
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "admin can not delete",
+				"data": nil,
+			})
+			return
+		}
+		result = database.DB.Delete(&user)
+		if result.Error != nil {
+			request.JSON(200, gin.H{
+				"code": 50000,
+				"msg":  "database error",
+				"data": nil,
+			})
+			return
+		}
 		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "user is not exists",
+			"code": 10000,
+			"msg":  "success",
 			"data": nil,
 		})
 		return

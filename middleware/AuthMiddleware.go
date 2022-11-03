@@ -11,6 +11,15 @@ import (
 func AuthLogin() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token_string := c.GetHeader("Authorization")
+		if token_string == "" {
+			c.JSON(200, gin.H{
+				"code": 0,
+				"msg":  "not login",
+				"data": nil,
+			})
+			c.Abort()
+			return
+		}
 
 		user := model_v1.User{}
 		result := database.DB.Where("token = ?", token_string).First(&user)

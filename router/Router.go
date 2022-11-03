@@ -32,6 +32,9 @@ func RegisterRouter(r *gin.Engine) {
 		browser_router_auth.POST("/member/:project_id", browser.PostMember)
 		browser_router_auth.DELETE("/member/:project_id/:member_id", browser.DeleteMember)
 		browser_router_auth.GET("/userinfo", browser.UserInfo)
+		browser_router_auth.GET("/token", browser.Tokens)
+		browser_router_auth.POST("/token", browser.PostToken)
+		browser_router_auth.DELETE("/token/:token_id", browser.DeleteToken)
 	}
 	browser_router_admin := r.Group("/browser/api", middleware.AdminMiddleware())
 	{
