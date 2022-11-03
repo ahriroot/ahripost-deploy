@@ -20,11 +20,15 @@ func RegisterRouter(r *gin.Engine) {
 	browser_router := r.Group("/browser/api")
 	{
 		browser_router.POST("/login", browser.Login)
+		browser_router.GET("/project/public/:project_id", browser.PublicProject)
+		browser_router.GET("/project/public", browser.PublicProjects)
+		browser_router.GET("/api/public/:project_id", browser.PublicItems)
 	}
 	browser_router_auth := r.Group("/browser/api", middleware.AuthLogin())
 	{
 		browser_router_auth.GET("/project/:project_id", browser.Project)
 		browser_router_auth.GET("/project", browser.Projects)
+		browser_router_auth.PUT("/project/:project_id", browser.PutProject)
 		browser_router_auth.GET("/api/:project_id", browser.Items)
 		browser_router_auth.POST("/api/:project_id", browser.PostItem)
 		browser_router_auth.GET("/member/:project_id/:member_id", browser.Member)

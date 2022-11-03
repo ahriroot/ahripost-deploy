@@ -8,6 +8,7 @@ type Project struct {
 	Key      string `json:"key" gorm:"column:key;uniqueIndex"`
 	Name     string `json:"name" gorm:"column:name"`
 	CreateAt int64  `json:"create_at" gorm:"column:create_at"`
+	Public   bool   `json:"public" gorm:"column:public;default:false"`
 }
 
 type Item struct {

@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// not in used
 func Item(request *gin.Context) {
 	var user model_v1.User
 	if u, exist := request.Get("user"); exist {

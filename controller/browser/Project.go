@@ -138,3 +138,73 @@ func Projects(request *gin.Context) {
 		},
 	})
 }
+
+type FormProject struct {
+	Name   string `json:"name"`
+	Public bool   `json:"public"`
+}
+
+func PutProject(request *gin.Context) {
+	var user model_v1.User
+	if u, exist := request.Get("user"); exist {
+		user = u.(model_v1.User)
+	} else {
+		request.JSON(200, gin.H{
+			"code": 0,
+			"msg":  "not login",
+			"data": nil,
+		})
+		return
+	}
+
+	var project_id = request.Param("project_id")
+	if project_id == "" {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "no project id",
+			"data": nil,
+		})
+		return
+	}
+
+	var data FormProject
+	if err := request.ShouldBindJSON(&data); err != nil {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "no project id",
+			"data": nil,
+		})
+		return
+	}
+
+	project, err := CheckPermission(user, project_id, []int{1})
+	if err != nil {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "no permission",
+			"data": nil,
+		})
+		return
+	}
+	if data.Name != "" {
+		project.Name = data.Name
+	}
+	project.Public = data.Public
+	result := database.DB.Save(&project)
+	if result.Error != nil {
+		request.JSON(200, gin.H{
+			"code": 50000,
+			"msg":  "server error",
+			"data": gin.H{
+				"message": result.Error.Error(),
+			},
+		})
+		return
+	}
+
+	request.JSON(200, gin.H{
+		"code": 10000,
+		"msg":  "update project success",
+		"data": project,
+	})
+}

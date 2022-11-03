@@ -39,11 +39,11 @@ var Cfg = Config{
 		Path: "",
 	},
 	Postgres: Postgres{
-		Host: "",
+		Host: "127.0.0.1",
 		Port: "5432",
 		Name: "ahrisso",
 		User: "postgres",
-		Pass: "Aa12345.",
+		Pass: "",
 	},
 }
 
