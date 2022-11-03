@@ -31,5 +31,14 @@ func RegisterRouter(r *gin.Engine) {
 		browser_router_auth.GET("/member/:project_id", browser.Members)
 		browser_router_auth.POST("/member/:project_id", browser.PostMember)
 		browser_router_auth.DELETE("/member/:project_id/:member_id", browser.DeleteMember)
+		browser_router_auth.GET("/userinfo", browser.UserInfo)
+	}
+	browser_router_admin := r.Group("/browser/api", middleware.AdminMiddleware())
+	{
+		browser_router_admin.GET("/user/:user_id", browser.User)
+		browser_router_admin.GET("/user", browser.Users)
+		browser_router_admin.POST("/user", browser.PostUser)
+		browser_router_admin.PUT("/user/:user_id", browser.PutUser)
+		browser_router_admin.DELETE("/user/:user_id", browser.DeleteUser)
 	}
 }

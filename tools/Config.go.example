@@ -1,0 +1,93 @@
+package tools
+
+import (
+	"os"
+	"reflect"
+)
+
+type Sqlite struct {
+	Path string `json:"path"`
+}
+
+type Postgres struct {
+	Host string `json:"host"`
+	Port string `json:"port"`
+	Name string `json:"name"`
+	User string `json:"user"`
+	Pass string `json:"pass"`
+}
+
+type Config struct {
+	AppName  string `json:"app_name"`
+	AppMode  string `json:"app_mode"`
+	AppHost  string `json:"app_host"`
+	AppPort  string `json:"app_port"`
+	DBType   string `json:"db_type"`
+	TimeZone string `json:"time_zone"`
+	Sqlite   Sqlite
+	Postgres Postgres
+}
+
+var Cfg = Config{
+	AppName:  "ahripost",
+	AppMode:  "production",
+	AppHost:  "0.0.0.0",
+	AppPort:  "9000",
+	DBType:   "postgres",
+	TimeZone: "Asia/Shanghai",
+	Sqlite: Sqlite{
+		Path: "",
+	},
+	Postgres: Postgres{
+		Host: "",
+		Port: "5432",
+		Name: "ahrisso",
+		User: "postgres",
+		Pass: "Aa12345.",
+	},
+}
+
+func init() {
+	cfg := reflect.ValueOf(&Cfg).Elem()
+	var envs = []string{"APP_NAME", "APP_MODE", "APP_HOST", "APP_PORT"}
+	var keys = []string{"AppName", "AppMode", "AppHost", "AppPort"}
+	var env string
+	for i := 0; i < len(envs); i++ {
+		env = os.Getenv(envs[i])
+		if env != "" {
+			cfg.FieldByName(keys[i]).SetString(env)
+		}
+	}
+
+	env = os.Getenv("DB_TYPE")
+	if env != "" {
+		cfg.FieldByName("DBType").SetString(env)
+	}
+
+	env = os.Getenv("TIME_ZONE")
+	if env != "" {
+		cfg.FieldByName("TimeZone").SetString(env)
+	}
+
+	postgres := reflect.ValueOf(&Cfg.Postgres).Elem()
+	var postgresEnvs = []string{"POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_NAME", "POSTGRES_USER", "POSTGRES_PASS"}
+	var postgresKeys = []string{"Host", "Port", "Name", "User", "Pass"}
+	var postgresEnv string
+	for i := 0; i < len(postgresEnvs); i++ {
+		postgresEnv = os.Getenv(postgresEnvs[i])
+		if postgresEnv != "" {
+			postgres.FieldByName(postgresKeys[i]).SetString(postgresEnv)
+		}
+	}
+
+	sqlite := reflect.ValueOf(&Cfg.Sqlite).Elem()
+	var sqliteEnvs = []string{"SQLITE_PATH"}
+	var sqliteKeys = []string{"Path"}
+	var sqliteEnv string
+	for i := 0; i < len(sqliteEnvs); i++ {
+		sqliteEnv = os.Getenv(sqliteEnvs[i])
+		if sqliteEnv != "" {
+			sqlite.FieldByName(sqliteKeys[i]).SetString(sqliteEnv)
+		}
+	}
+}
