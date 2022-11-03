@@ -18,7 +18,7 @@ func TokenLogin() gin.HandlerFunc {
 			if result.Error == gorm.ErrRecordNotFound {
 				c.JSON(200, gin.H{
 					"code": 0,
-					"msg":  "not login",
+					"msg":  "error token",
 					"data": nil,
 				})
 				c.Abort()

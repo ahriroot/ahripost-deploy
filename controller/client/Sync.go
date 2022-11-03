@@ -112,12 +112,15 @@ func SyncCheck(request *gin.Context) {
 		map_remote[item.Key] = item
 	}
 
+	keys_delete := make([]string, 0)
 	items_download := make([]string, 0)
 	items_upload := make([]string, 0)
 
 	for _, api := range data.Apis {
 		if item, exist := map_remote[api.Key]; exist {
-			if item.LastUpdate > api.LastUpdate {
+			if map_remote[api.Key].Tag {
+				keys_delete = append(keys_delete, api.Key)
+			} else if item.LastUpdate > api.LastUpdate {
 				items_download = append(items_download, item.Key)
 			} else if item.LastUpdate < api.LastUpdate {
 				items_upload = append(items_upload, item.Key)
@@ -128,7 +131,9 @@ func SyncCheck(request *gin.Context) {
 		}
 	}
 	for _, item := range map_remote {
-		items_download = append(items_download, item.Key)
+		if !item.Tag {
+			items_download = append(items_download, item.Key)
+		}
 	}
 
 	request.JSON(200, gin.H{
@@ -137,6 +142,7 @@ func SyncCheck(request *gin.Context) {
 		"data": gin.H{
 			"items_download": items_download,
 			"items_upload":   items_upload,
+			"keys_delete":    keys_delete,
 		},
 	})
 }
@@ -238,6 +244,9 @@ func SyncData(request *gin.Context) {
 				item.LastUpdate = int64(data_item["last_update"].(float64))
 				item.Request = data_item["request"].(string)
 				item.Response = data_item["response"].(string)
+				item.Template = data_item["template"].(string)
+				item.Client = data_item["client"].(string)
+				item.Tag = data_item["tag"].(bool)
 				database.DB.Create(&item)
 
 				count++
@@ -261,6 +270,7 @@ func SyncData(request *gin.Context) {
 			item.LastUpdate = int64(data_item["last_update"].(float64))
 			item.Request = data_item["request"].(string)
 			item.Response = data_item["response"].(string)
+			item.Template = data_item["template"].(string)
 			database.DB.Save(&item)
 
 			count++

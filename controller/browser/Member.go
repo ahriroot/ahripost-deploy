@@ -97,8 +97,18 @@ func Members(request *gin.Context) {
 		return
 	}
 
+	project, err := CheckPermission(user, project_id, []int{1, 2})
+	if err != nil {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "no permission",
+			"data": nil,
+		})
+		return
+	}
+
 	members := []model_v1.Member{}
-	result := database.DB.Preload("Member").Where("user_r_id = ? AND project_r_id = ?", user.RID, project_id).Find(&members)
+	result := database.DB.Preload("Member").Where("project_r_id = ?", project.Key).Find(&members)
 	if result.Error != nil {
 		request.JSON(200, gin.H{
 			"code": 50000,
@@ -118,6 +128,7 @@ func Members(request *gin.Context) {
 }
 
 type PostMemberRequest struct {
+	Status   int    `json:"status"`
 	Username string `json:"username"`
 }
 
@@ -140,6 +151,16 @@ func PostMember(request *gin.Context) {
 		request.JSON(200, gin.H{
 			"code": 40000,
 			"msg":  "no project id",
+			"data": nil,
+		})
+		return
+	}
+
+	project, err := CheckPermission(user, project_id, []int{1})
+	if err != nil {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "no permission",
 			"data": nil,
 		})
 		return
@@ -179,14 +200,14 @@ func PostMember(request *gin.Context) {
 	}
 
 	member := model_v1.Member{}
-	result = database.DB.Where("user_r_id = ? AND member_r_id = ? AND project_r_id = ?", user.RID, member_user.RID, project_id).First(&member)
+	result = database.DB.Where("user_r_id = ? AND member_r_id = ? AND project_r_id = ?", user.RID, member_user.RID, project.Key).First(&member)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			member = model_v1.Member{
 				UserRID:    user.RID,
 				MemberRID:  member_user.RID,
 				ProjectRID: project_id,
-				Status:     0,
+				Status:     data.Status,
 			}
 			result = database.DB.Create(&member)
 			if result.Error != nil {
@@ -217,72 +238,10 @@ func PostMember(request *gin.Context) {
 			return
 		}
 	} else {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "member already exist",
-			"data": nil,
-		})
-		return
-	}
-}
-
-func PutMember(request *gin.Context) {
-	var user model_v1.User
-	if u, exist := request.Get("user"); exist {
-		user = u.(model_v1.User)
-	} else {
-		request.JSON(200, gin.H{
-			"code": 0,
-			"msg":  "not login",
-			"data": nil,
-		})
-		return
-	}
-
-	var member_id = request.Param("member_id")
-	if member_id == "" {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "no member id",
-			"data": nil,
-		})
-		return
-	}
-
-	var id int64
-	var err error
-	id, err = strconv.ParseInt(member_id, 10, 64)
-	if err != nil {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "member id is not a number",
-			"data": nil,
-		})
-		return
-	}
-
-	var member_form model_v1.Member
-	err = request.BindJSON(&member_form)
-	if err != nil {
-		request.JSON(200, gin.H{
-			"code": 40000,
-			"msg":  "bad request",
-			"data": nil,
-		})
-		return
-	}
-
-	var member model_v1.Member
-	result := database.DB.Where("_id = ? AND user_r_id = ?", id, user.RID).First(&member)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			request.JSON(200, gin.H{
-				"code": 40000,
-				"msg":  "no member",
-				"data": nil,
-			})
-			return
-		} else {
+		// update
+		member.Status = data.Status
+		result = database.DB.Save(&member)
+		if result.Error != nil {
 			request.JSON(200, gin.H{
 				"code": 50000,
 				"msg":  "server error",
@@ -291,29 +250,15 @@ func PutMember(request *gin.Context) {
 				},
 			})
 			return
+		} else {
+			request.JSON(200, gin.H{
+				"code": 10000,
+				"msg":  "update member success",
+				"data": nil,
+			})
+			return
 		}
 	}
-
-	member.RID = id
-	member.Status = member_form.Status
-	member.UserRID = user.RID
-	result = database.DB.Save(&member)
-	if result.Error != nil {
-		request.JSON(200, gin.H{
-			"code": 50000,
-			"msg":  "server error",
-			"data": gin.H{
-				"message": result.Error.Error(),
-			},
-		})
-		return
-	}
-
-	request.JSON(200, gin.H{
-		"code": 10000,
-		"msg":  "update member success",
-		"data": member,
-	})
 }
 
 func DeleteMember(request *gin.Context) {
@@ -328,6 +273,26 @@ func DeleteMember(request *gin.Context) {
 		})
 		return
 	}
+	var err error
+	var project_id = request.Param("project_id")
+	if project_id == "" {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "no member id",
+			"data": nil,
+		})
+		return
+	}
+
+	project, err := CheckPermission(user, project_id, []int{1})
+	if err != nil {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "no permission",
+			"data": nil,
+		})
+		return
+	}
 
 	var member_id = request.Param("member_id")
 	if member_id == "" {
@@ -340,7 +305,6 @@ func DeleteMember(request *gin.Context) {
 	}
 
 	var id int64
-	var err error
 	id, err = strconv.ParseInt(member_id, 10, 64)
 	if err != nil {
 		request.JSON(200, gin.H{
@@ -352,7 +316,7 @@ func DeleteMember(request *gin.Context) {
 	}
 
 	var member model_v1.Member
-	result := database.DB.Where("_id = ? AND user_r_id = ?", id, user.RID).First(&member)
+	result := database.DB.Where("_id = ? AND project_r_id = ?", id, project.Key).First(&member)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			request.JSON(200, gin.H{

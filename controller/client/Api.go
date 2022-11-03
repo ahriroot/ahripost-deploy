@@ -132,6 +132,8 @@ func Apis(request *gin.Context) {
 				item.LastUpdate = last_update_local
 				item.Request = api["request"].(string)
 				item.Response = api["response"].(string)
+				item.Template = api["template"].(string)
+				item.Client = client
 				items_update = append(items_update, item)
 			} else {
 				// last_sync_remote := data_remote[key].(model_v1.Item).LastSync
@@ -147,6 +149,8 @@ func Apis(request *gin.Context) {
 					item.LastUpdate = last_update_local
 					item.Request = api["request"].(string)
 					item.Response = api["response"].(string)
+					item.Template = api["template"].(string)
+					item.Client = client
 					items_update = append(items_update, item)
 				} else if last_update_local < last_update_remote {
 					items_sync = append(items_sync, item)
@@ -166,6 +170,8 @@ func Apis(request *gin.Context) {
 				LastUpdate: int64(api["last_update"].(float64)),
 				Request:    api["request"].(string),
 				Response:   api["response"].(string),
+				Template:   api["template"].(string),
+				Client:     api["client"].(string),
 			})
 		}
 	}
@@ -187,5 +193,98 @@ func Apis(request *gin.Context) {
 			"items_sync":   items_sync,
 			"items_update": items_update,
 		},
+	})
+}
+
+func PutApi(request *gin.Context) {
+	var user model_v1.User
+	if u, exist := request.Get("user"); exist {
+		user = u.(model_v1.User)
+	} else {
+		request.JSON(200, gin.H{
+			"code": 0,
+			"msg":  "not login",
+			"data": nil,
+		})
+		return
+	}
+
+	var err error
+	var data map[string]interface{}
+	if err = request.ShouldBind(&data); err != nil {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "参数错误！",
+			"data": gin.H{
+				"message": err.Error(),
+			},
+		})
+		return
+	}
+
+	data_project := data["project"].(string)
+	project := model_v1.Project{}
+	result := database.DB.Where("key = ?", data_project).Find(&project)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": gin.H{
+					"message": result.Error.Error(),
+				},
+			})
+			return
+		} else {
+			request.JSON(200, gin.H{
+				"code": 50000,
+				"msg":  "sync project error",
+				"data": gin.H{
+					"message": result.Error.Error(),
+				},
+			})
+			return
+		}
+	}
+
+	if project.UserRID != user.RID { // 该用户不拥有该项目
+		member := model_v1.Member{}
+		result = database.DB.Where("project_r_id = ? AND member_r_id = ?", project.Key, user.RID).First(&member)
+		if result.Error != nil { // 该用户不是该项目的成员
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no project",
+				"data": nil,
+			})
+			return
+		}
+		if member.Status != 1 { // 该成员没有上传权限
+			request.JSON(200, gin.H{
+				"code": 40000,
+				"msg":  "no permission",
+				"data": nil,
+			})
+			return
+		}
+	}
+
+	data_keys := data["keys"].([]interface{})
+
+	result = database.DB.Model(&model_v1.Item{}).Where("project_r_id = ? AND key IN (?)", project.Key, data_keys).Update("tag", true)
+	if result.Error != nil {
+		request.JSON(200, gin.H{
+			"code": 50000,
+			"msg":  "delete error",
+			"data": gin.H{
+				"message": result.Error.Error(),
+			},
+		})
+		return
+	}
+
+	request.JSON(200, gin.H{
+		"code": 10000,
+		"msg":  "delete success",
+		"data": data_keys,
 	})
 }

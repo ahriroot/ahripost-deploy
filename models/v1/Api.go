@@ -26,6 +26,7 @@ type Item struct {
 	Parent     string  `json:"parent" gorm:"column:parent;default:''"`
 	LastSync   int64   `json:"last_sync" gorm:"column:last_sync;default:0"`
 	LastUpdate int64   `json:"last_update" gorm:"column:last_update"`
+	Template   string  `json:"template" gorm:"column:template"`
 	Request    string  `json:"request" gorm:"column:request"`
 	Response   string  `json:"response" gorm:"column:response"`
 }

@@ -242,6 +242,7 @@ func PostItem(request *gin.Context) {
 	item.Parent = data["parent"].(string)
 	item.LastSync = utc_timestame
 	item.LastUpdate = int64(data["last_update"].(float64))
+	item.Template = data["template"].(string)
 	if data["request"] == nil {
 		item.Request = ""
 	} else {

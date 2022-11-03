@@ -12,6 +12,7 @@ func RegisterRouter(r *gin.Engine) {
 	client_router := r.Group("/client/api", middleware.TokenLogin())
 	{
 		client_router.POST("/sync_api", client.Apis)
+		client_router.POST("/delete_api", client.PutApi)
 		client_router.POST("/sync_check", client.SyncCheck)
 		client_router.POST("/sync_data", client.SyncData)
 		client_router.GET("/project", client.Projects)
