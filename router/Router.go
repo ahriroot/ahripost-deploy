@@ -28,6 +28,7 @@ func RegisterRouter(r *gin.Engine) {
 	{
 		browser_router_auth.GET("/project/:project_id", browser.Project)
 		browser_router_auth.GET("/project", browser.Projects)
+		browser_router_auth.POST("/project", browser.PostProject)
 		browser_router_auth.PUT("/project/:project_id", browser.PutProject)
 		browser_router_auth.GET("/api/:project_id", browser.Items)
 		browser_router_auth.POST("/api/:project_id", browser.PostItem)

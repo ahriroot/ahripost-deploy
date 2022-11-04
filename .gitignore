@@ -1216,3 +1216,4 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/linux,windows,macos,visualstudiocode,visualstudio,jetbrains,notepadpp,vuejs,react,node,go,python,rust,csharp,c,c++,venv
 
 tools/Config.go
+ahripost_deploy

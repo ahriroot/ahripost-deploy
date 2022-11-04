@@ -3,8 +3,10 @@ package browser
 import (
 	database "ahripost_deploy/database"
 	model_v1 "ahripost_deploy/models/v1"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -142,6 +144,68 @@ func Projects(request *gin.Context) {
 type FormProject struct {
 	Name   string `json:"name"`
 	Public bool   `json:"public"`
+}
+
+func PostProject(request *gin.Context) {
+	var user model_v1.User
+	if u, exist := request.Get("user"); exist {
+		user = u.(model_v1.User)
+	} else {
+		request.JSON(200, gin.H{
+			"code": 0,
+			"msg":  "not login",
+			"data": nil,
+		})
+		return
+	}
+
+	var form FormProject
+	if err := request.ShouldBindJSON(&form); err != nil {
+		request.JSON(200, gin.H{
+			"code": 40000,
+			"msg":  "bad request",
+			"data": nil,
+		})
+		return
+	}
+
+	u4, err := uuid.NewRandom()
+	if err != nil {
+		request.JSON(200, gin.H{
+			"code": 50000,
+			"msg":  "server error",
+			"data": gin.H{
+				"message": err.Error(),
+			},
+		})
+		return
+	}
+
+	project := model_v1.Project{
+		ID:       0,
+		UserRID:  user.RID,
+		Key:      u4.String(),
+		Name:     form.Name,
+		CreateAt: time.Now().UnixMilli(),
+		Public:   form.Public,
+	}
+	result := database.DB.Create(&project)
+	if result.Error != nil {
+		request.JSON(200, gin.H{
+			"code": 50000,
+			"msg":  "server error",
+			"data": gin.H{
+				"message": result.Error.Error(),
+			},
+		})
+		return
+	}
+
+	request.JSON(200, gin.H{
+		"code": 10000,
+		"msg":  "create project success",
+		"data": project,
+	})
 }
 
 func PutProject(request *gin.Context) {
