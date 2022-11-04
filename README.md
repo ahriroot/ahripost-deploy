@@ -42,7 +42,7 @@
 
 ```bash
 # 获取镜像
-docker push ahriknow/ahripost-deploy:0.1.0
+docker pull ahriknow/ahripost-deploy:0.1.0
 
 # 启动容器
 container run --name ahripost_deploy -p 9000:9000 -v /data:/data -d ahriknow/ahripost-deploy:0.1.0
@@ -64,7 +64,7 @@ container run --name ahripost_deploy -p 9000:9000 -v /data:/data -d ahriknow/ahr
 
 ```bash
 # 获取镜像
-docker push ahriknow/ahripost-web:0.1.0
+docker pull ahriknow/ahripost-web:0.1.0
 
 # 启动容器 (nginx + vue)
 docker container run --name ahripost_web -p 5000:80 -e BASE_URL=http://127.0.0.1:9000 -d ahriknow/ahripost-web:0.1.0
