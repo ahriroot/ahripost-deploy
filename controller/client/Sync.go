@@ -17,8 +17,9 @@ type FormApi struct {
 }
 
 type FormProject struct {
-	Key  string `json:"key"`
-	Name string `json:"name"`
+	Key      string `json:"key"`
+	Name     string `json:"name"`
+	Environs string `json:"environs"`
 }
 
 type FormRequest struct {
@@ -61,6 +62,8 @@ func SyncCheck(request *gin.Context) {
 			project.Key = data.Project.Key
 			project.Name = data.Project.Name
 			project.CreateAt = time.Now().UnixMilli()
+			project.UpdateAt = 0
+			project.Environs = data.Project.Environs
 			result = database.DB.Create(&project)
 			if result.Error != nil {
 				request.JSON(200, gin.H{
@@ -105,6 +108,22 @@ func SyncCheck(request *gin.Context) {
 		}
 	}
 
+	// update project
+	project.Name = data.Project.Name
+	project.Environs = data.Project.Environs
+	project.UpdateAt = time.Now().UnixMilli()
+	result = database.DB.Save(&project)
+	if result.Error != nil {
+		request.JSON(200, gin.H{
+			"code": 50000,
+			"msg":  "sync project error",
+			"data": gin.H{
+				"message": result.Error.Error(),
+			},
+		})
+		return
+	}
+
 	items := []model_v1.Item{}
 	database.DB.Where("project_r_id = ?", project.Key).Find(&items)
 	map_remote := map[string]model_v1.Item{}
@@ -140,6 +159,7 @@ func SyncCheck(request *gin.Context) {
 		"code": 10000,
 		"msg":  "sync check success",
 		"data": gin.H{
+			"project":        project,
 			"items_download": items_download,
 			"items_upload":   items_upload,
 			"keys_delete":    keys_delete,

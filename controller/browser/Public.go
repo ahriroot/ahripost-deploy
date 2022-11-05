@@ -62,6 +62,10 @@ func PublicProjects(request *gin.Context) {
 		return
 	}
 
+	for i := 0; i < len(projects); i++ {
+		projects[i].Environs = "[]"
+	}
+
 	request.JSON(200, gin.H{
 		"code": 10000,
 		"msg":  "find projects success",

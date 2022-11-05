@@ -8,13 +8,15 @@ type Project struct {
 	Key      string `json:"key" gorm:"column:key;uniqueIndex"`
 	Name     string `json:"name" gorm:"column:name"`
 	CreateAt int64  `json:"create_at" gorm:"column:create_at"`
+	UpdateAt int64  `json:"update_at" gorm:"column:update_at;default:0"`
 	Public   bool   `json:"public" gorm:"column:public;default:false"`
+	Environs string `json:"environs" gorm:"column:environs;default:'[]'"`
 }
 
 type Item struct {
 	RID        int64   `json:"_id" gorm:"column:_id;primary_key;AUTO_INCREMENT"`
 	ID         int64   `json:"id" gorm:"column:id"`
-	Key        string  `json:"key" gorm:"column:key"`
+	Key        string  `json:"key" gorm:"column:key;uniqueIndex"`
 	Label      string  `json:"label" gorm:"column:label"`
 	Type       string  `json:"type" gorm:"column:type"`
 	From       string  `json:"from" gorm:"column:from"`
